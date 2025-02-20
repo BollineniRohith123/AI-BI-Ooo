@@ -1,12 +1,13 @@
-import Image from 'next/image';
-
 export default function LogoBar() {
   return (
-    <Image
-      src="/images/logo-white-with-text.svg"
-      alt="Wren AI"
-      width={125}
-      height={30}
-    />
+    <div
+      style={{
+        color: 'white',
+        fontSize: '24px',
+        fontWeight: 'bold',
+      }}
+    >
+      AI+BI
+    </div>
   );
 }

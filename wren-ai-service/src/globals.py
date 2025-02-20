@@ -11,7 +11,6 @@ from src.web.v1 import services
 
 logger = logging.getLogger("wren-ai-service")
 
-
 @dataclass
 class ServiceContainer:
     ask_service: services.AskService
@@ -27,12 +26,31 @@ class ServiceContainer:
     sql_pairs_service: services.SqlPairsService
     sql_question_service: services.SqlQuestionService
 
-
 @dataclass
 class ServiceMetadata:
     pipes_metadata: dict
     service_version: str
 
+class SafePipeComponents:
+    def __init__(self, components: dict):
+        self.components = components
+
+    def __getitem__(self, key: str) -> dict:
+        if key not in self.components:
+            return {}  # Return empty dict if component not found
+        
+        comp = self.components[key]
+        if not isinstance(comp, PipelineComponent):
+            # Convert dict to PipelineComponent if needed
+            comp = PipelineComponent(
+                embedder_provider=comp.get('embedder_provider'),
+                llm_provider=comp.get('llm_provider'),
+                document_store_provider=comp.get('document_store_provider'),
+                engine=comp.get('engine')
+            )
+            self.components[key] = comp
+        
+        return asdict(comp)  # Always convert to dict for unpacking
 
 def create_service_container(
     pipe_components: dict[str, PipelineComponent],
@@ -42,11 +60,49 @@ def create_service_container(
         "maxsize": settings.query_cache_maxsize,
         "ttl": settings.query_cache_ttl,
     }
+    
+    # Wrap pipe_components with safe access
+    safe_components = SafePipeComponents(pipe_components)
+    required_components = [
+        "sql_explanation",
+        "semantics_description",
+        "db_schema_indexing",
+        "historical_question_indexing",
+        "table_description_indexing",
+        "sql_pairs_indexing",
+        "intent_classification",
+        "data_assistance",
+        "db_schema_retrieval",
+        "historical_question_retrieval",
+        "sql_pairs_retrieval",
+        "sql_generation",
+        "sql_generation_reasoning",
+        "sql_correction",
+        "followup_sql_generation",
+        "sql_summary",
+        "sql_regeneration",
+        "sql_executor",
+        "chart_generation",
+        "chart_adjustment",
+        "sql_answer",
+        "preprocess_sql_data",
+        "sql_breakdown",
+        "sql_expansion",
+        "relationship_recommendation",
+        "question_recommendation",
+        "question_recommendation_db_schema_retrieval",
+        "question_recommendation_sql_generation",
+        "sql_question_generation"
+    ]
+    
+    for component in required_components:
+        if component not in pipe_components:
+            pipe_components[component] = {}
     return ServiceContainer(
         semantics_description=services.SemanticsDescription(
             pipelines={
                 "semantics_description": generation.SemanticsDescription(
-                    **pipe_components["semantics_description"],
+                    **safe_components["semantics_description"],
                 )
             },
             **query_cache,
@@ -54,17 +110,17 @@ def create_service_container(
         semantics_preparation_service=services.SemanticsPreparationService(
             pipelines={
                 "db_schema": indexing.DBSchema(
-                    **pipe_components["db_schema_indexing"],
+                    **safe_components["db_schema_indexing"],
                     column_batch_size=settings.column_indexing_batch_size,
                 ),
                 "historical_question": indexing.HistoricalQuestion(
-                    **pipe_components["historical_question_indexing"],
+                    **safe_components["historical_question_indexing"],
                 ),
                 "table_description": indexing.TableDescription(
-                    **pipe_components["table_description_indexing"],
+                    **safe_components["table_description_indexing"],
                 ),
                 "sql_pairs": indexing.SqlPairs(
-                    **pipe_components["sql_pairs_indexing"],
+                    **safe_components["sql_pairs_indexing"],
                     sql_pairs_path=settings.sql_pairs_path,
                 ),
             },
@@ -73,27 +129,27 @@ def create_service_container(
         ask_service=services.AskService(
             pipelines={
                 "intent_classification": generation.IntentClassification(
-                    **pipe_components["intent_classification"],
+                    **safe_components["intent_classification"],
                 ),
                 "data_assistance": generation.DataAssistance(
-                    **pipe_components["data_assistance"]
+                    **safe_components["data_assistance"]
                 ),
                 "retrieval": retrieval.Retrieval(
-                    **pipe_components["db_schema_retrieval"],
+                    **safe_components["db_schema_retrieval"],
                     table_retrieval_size=settings.table_retrieval_size,
                     table_column_retrieval_size=settings.table_column_retrieval_size,
                     allow_using_db_schemas_without_pruning=settings.allow_using_db_schemas_without_pruning,
                 ),
                 "historical_question": retrieval.HistoricalQuestionRetrieval(
-                    **pipe_components["historical_question_retrieval"],
+                    **safe_components["historical_question_retrieval"],
                 ),
                 "sql_pairs_retrieval": retrieval.SqlPairsRetrieval(
-                    **pipe_components["sql_pairs_retrieval"],
+                    **safe_components["sql_pairs_retrieval"],
                     sql_pairs_similarity_threshold=settings.sql_pairs_similarity_threshold,
                     sql_pairs_retrieval_max_size=settings.sql_pairs_retrieval_max_size,
                 ),
                 "sql_generation": generation.SQLGeneration(
-                    **pipe_components["sql_generation"],
+                    **safe_components["sql_generation"],
                     engine_timeout=settings.engine_timeout,
                 ),
                 "sql_generation_reasoning": generation.SQLGenerationReasoning(
@@ -122,11 +178,11 @@ def create_service_container(
         chart_service=services.ChartService(
             pipelines={
                 "sql_executor": retrieval.SQLExecutor(
-                    **pipe_components["sql_executor"],
+                    **safe_components["sql_executor"],
                     engine_timeout=settings.engine_timeout,
                 ),
                 "chart_generation": generation.ChartGeneration(
-                    **pipe_components["chart_generation"],
+                    **safe_components["chart_generation"],
                 ),
             },
             **query_cache,
@@ -134,11 +190,11 @@ def create_service_container(
         chart_adjustment_service=services.ChartAdjustmentService(
             pipelines={
                 "sql_executor": retrieval.SQLExecutor(
-                    **pipe_components["sql_executor"],
+                    **safe_components["sql_executor"],
                     engine_timeout=settings.engine_timeout,
                 ),
                 "chart_adjustment": generation.ChartAdjustment(
-                    **pipe_components["chart_adjustment"],
+                    **safe_components["chart_adjustment"],
                 ),
             },
             **query_cache,
@@ -146,10 +202,10 @@ def create_service_container(
         sql_answer_service=services.SqlAnswerService(
             pipelines={
                 "preprocess_sql_data": retrieval.PreprocessSqlData(
-                    **pipe_components["preprocess_sql_data"],
+                    **safe_components["preprocess_sql_data"],
                 ),
                 "sql_answer": generation.SQLAnswer(
-                    **pipe_components["sql_answer"],
+                    **safe_components["sql_answer"],
                     engine_timeout=settings.engine_timeout,
                 ),
             },
@@ -158,11 +214,11 @@ def create_service_container(
         ask_details_service=services.AskDetailsService(
             pipelines={
                 "sql_breakdown": generation.SQLBreakdown(
-                    **pipe_components["sql_breakdown"],
+                    **safe_components["sql_breakdown"],
                     engine_timeout=settings.engine_timeout,
                 ),
                 "sql_summary": generation.SQLSummary(
-                    **pipe_components["sql_summary"],
+                    **safe_components["sql_summary"],
                 ),
             },
             **query_cache,
@@ -170,20 +226,20 @@ def create_service_container(
         sql_expansion_service=services.SqlExpansionService(
             pipelines={
                 "retrieval": retrieval.Retrieval(
-                    **pipe_components["db_schema_retrieval"],
+                    **safe_components["db_schema_retrieval"],
                     table_retrieval_size=settings.table_retrieval_size,
                     table_column_retrieval_size=settings.table_column_retrieval_size,
                 ),
                 "sql_expansion": generation.SQLExpansion(
-                    **pipe_components["sql_expansion"],
+                    **safe_components["sql_expansion"],
                     engine_timeout=settings.engine_timeout,
                 ),
                 "sql_correction": generation.SQLCorrection(
-                    **pipe_components["sql_correction"],
+                    **safe_components["sql_correction"],
                     engine_timeout=settings.engine_timeout,
                 ),
                 "sql_summary": generation.SQLSummary(
-                    **pipe_components["sql_summary"],
+                    **safe_components["sql_summary"],
                 ),
             },
             **query_cache,
@@ -191,7 +247,7 @@ def create_service_container(
         relationship_recommendation=services.RelationshipRecommendation(
             pipelines={
                 "relationship_recommendation": generation.RelationshipRecommendation(
-                    **pipe_components["relationship_recommendation"],
+                    **safe_components["relationship_recommendation"],
                     engine_timeout=settings.engine_timeout,
                 )
             },
@@ -200,7 +256,7 @@ def create_service_container(
         question_recommendation=services.QuestionRecommendation(
             pipelines={
                 "question_recommendation": generation.QuestionRecommendation(
-                    **pipe_components["question_recommendation"],
+                    **safe_components["question_recommendation"],
                 ),
                 "retrieval": retrieval.Retrieval(
                     **pipe_components["question_recommendation_db_schema_retrieval"],
@@ -221,7 +277,7 @@ def create_service_container(
         sql_pairs_service=services.SqlPairsService(
             pipelines={
                 "sql_pairs": indexing.SqlPairs(
-                    **pipe_components["sql_pairs_indexing"],
+                    **safe_components["sql_pairs_indexing"],
                     sql_pairs_path=settings.sql_pairs_path,
                 )
             },
@@ -230,20 +286,17 @@ def create_service_container(
         sql_question_service=services.SqlQuestionService(
             pipelines={
                 "sql_question_generation": generation.SQLQuestion(
-                    **pipe_components["sql_question_generation"],
+                    **safe_components["sql_question_generation"],
                 )
             },
             **query_cache,
         ),
     )
 
-
 # Create a dependency that will be used to access the ServiceContainer
 def get_service_container():
     from src.__main__ import app
-
     return app.state.service_container
-
 
 def create_service_metadata(
     pipe_components: dict[str, PipelineComponent],
@@ -252,7 +305,6 @@ def create_service_metadata(
     """
     This service metadata is used for logging purposes and will be sent to Langfuse.
     """
-
     def _get_version_from_pyproject() -> str:
         with open(pyproject_path, "r") as f:
             pyproject = toml.load(f)
@@ -271,7 +323,6 @@ def create_service_metadata(
             if llm_provider
             else {}
         )
-
         embedding_metadata = (
             {
                 "embedding_model": embedder_provider.get_model(),
@@ -285,16 +336,11 @@ def create_service_metadata(
         pipe_name: _convert_pipe_metadata(**asdict(component))
         for pipe_name, component in pipe_components.items()
     }
-
     service_version = _get_version_from_pyproject()
-
     logger.info(f"Service version: {service_version}")
-
     return ServiceMetadata(pipes_metadata, service_version)
-
 
 # Create a dependency that will be used to access the ServiceMetadata
 def get_service_metadata():
     from src.__main__ import app
-
     return app.state.service_metadata

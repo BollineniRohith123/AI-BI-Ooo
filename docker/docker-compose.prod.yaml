@@ -1,7 +1,8 @@
-version: "3"
+version: "3.8"
 
 volumes:
   data:
+    driver: local
 
 networks:
   wren:
@@ -10,17 +11,22 @@ networks:
 services:
   bootstrap:
     image: ghcr.io/canner/wren-bootstrap:${WREN_BOOTSTRAP_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     platform: ${PLATFORM}
     environment:
       DATA_PATH: /app/data
     volumes:
       - data:/app/data
     command: /bin/sh /app/init.sh
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   wren-engine:
     image: ghcr.io/canner/wren-engine:${WREN_ENGINE_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     platform: ${PLATFORM}
     expose:
       - ${WREN_ENGINE_PORT}
@@ -32,10 +38,20 @@ services:
       - wren
     depends_on:
       - bootstrap
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WREN_ENGINE_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   ibis-server:
     image: ghcr.io/canner/wren-engine-ibis:${IBIS_SERVER_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     platform: ${PLATFORM}
     expose:
       - ${IBIS_SERVER_PORT}
@@ -43,15 +59,25 @@ services:
       WREN_ENGINE_ENDPOINT: http://wren-engine:${WREN_ENGINE_PORT}
     networks:
       - wren
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${IBIS_SERVER_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   wren-ai-service:
     image: ghcr.io/canner/wren-ai-service:${WREN_AI_SERVICE_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     platform: ${PLATFORM}
     expose:
       - ${WREN_AI_SERVICE_PORT}
     ports:
-      - ${AI_SERVICE_FORWARD_PORT}:${WREN_AI_SERVICE_PORT}
+      - 127.0.0.1:${AI_SERVICE_FORWARD_PORT}:${WREN_AI_SERVICE_PORT}
     environment:
       PYTHONUNBUFFERED: 1
       CONFIG_PATH: /app/data/config.yaml
@@ -62,15 +88,25 @@ services:
     env_file:
       - ${PROJECT_DIR}/.env
     volumes:
-      - ${PROJECT_DIR}/config.yaml:/app/data/config.yaml
+      - ${PROJECT_DIR}/config.yaml:/app/data/config.yaml:ro
     networks:
       - wren
     depends_on:
       - qdrant
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WREN_AI_SERVICE_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   qdrant:
     image: qdrant/qdrant:v1.13.2
-    restart: on-failure
+    restart: unless-stopped
     expose:
       - 6333
       - 6334
@@ -78,23 +114,29 @@ services:
       - data:/qdrant/storage
     networks:
       - wren
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   wren-ui:
-    build:
-      context: ../wren-ui
-      dockerfile: Dockerfile
-    restart: on-failure
+    image: wren-ui:${WREN_UI_VERSION}
+    restart: unless-stopped
     platform: ${PLATFORM}
     environment:
+      NODE_ENV: production
       DB_TYPE: sqlite
-      # /app is the working directory in the container
       SQLITE_FILE: /app/data/db.sqlite3
       WREN_ENGINE_ENDPOINT: http://wren-engine:${WREN_ENGINE_PORT}
       WREN_AI_ENDPOINT: http://wren-ai-service:${WREN_AI_SERVICE_PORT}
       IBIS_SERVER_ENDPOINT: http://ibis-server:${IBIS_SERVER_PORT}
-      # this is for telemetry to know the model, i think ai-service might be able to provide a endpoint to get the information
       GENERATION_MODEL: ${GENERATION_MODEL}
-      # telemetry
       WREN_ENGINE_PORT: ${WREN_ENGINE_PORT}
       WREN_AI_SERVICE_VERSION: ${WREN_AI_SERVICE_VERSION}
       WREN_UI_VERSION: ${WREN_UI_VERSION}
@@ -103,21 +145,28 @@ services:
       POSTHOG_API_KEY: ${POSTHOG_API_KEY}
       POSTHOG_HOST: ${POSTHOG_HOST}
       TELEMETRY_ENABLED: ${TELEMETRY_ENABLED}
-      # client side
       NEXT_PUBLIC_USER_UUID: ${USER_UUID}
       NEXT_PUBLIC_POSTHOG_API_KEY: ${POSTHOG_API_KEY}
       NEXT_PUBLIC_POSTHOG_HOST: ${POSTHOG_HOST}
       NEXT_PUBLIC_TELEMETRY_ENABLED: ${TELEMETRY_ENABLED}
       EXPERIMENTAL_ENGINE_RUST_VERSION: ${EXPERIMENTAL_ENGINE_RUST_VERSION}
-      # configs
       WREN_PRODUCT_VERSION: ${WREN_PRODUCT_VERSION}
     ports:
-      # HOST_PORT is the port you want to expose to the host machine
-      - ${HOST_PORT}:3000
+      - "127.0.0.1:${HOST_PORT}:3000"
     volumes:
-      - data:/app/data
+      - data:/app/data:ro
     networks:
       - wren
     depends_on:
       - wren-ai-service
       - wren-engine
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3" 

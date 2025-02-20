@@ -3,8 +3,9 @@ import { useRouter } from 'next/router';
 import { Button } from 'antd';
 import styled from 'styled-components';
 import { Path } from '@/utils/enum';
-import { DiscordIcon, GithubIcon } from '@/utils/icons';
+import { DiscordIcon } from '@/utils/icons';
 import SettingOutlined from '@ant-design/icons/SettingOutlined';
+import { GithubOutlined } from '@ant-design/icons';
 import Home, { Props as HomeSidebarProps } from './Home';
 import Modeling, { Props as ModelingSidebarProps } from './Modeling';
 import LearningSection from '@/components/learning';
@@ -103,7 +104,7 @@ export default function Sidebar(props: Props) {
             data-ph-capture="true"
             data-ph-capture-attribute-name="cta_go_to_github"
           >
-            <GithubIcon className="mr-2" style={{ width: 16 }} /> GitHub
+            <GithubOutlined /> AI+BI
           </Link>
         </StyledButton>
       </div>

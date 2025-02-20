@@ -64,49 +64,49 @@ export const DATA_SOURCE_OPTIONS = {
   [DATA_SOURCES.BIG_QUERY]: {
     label: 'BigQuery',
     logo: '/images/dataSource/bigQuery.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/bigquery',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.DUCKDB]: {
     label: 'DuckDB',
     logo: '/images/dataSource/duckDb.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/duckdb',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.PG_SQL]: {
     label: 'PostgreSQL',
     logo: '/images/dataSource/postgreSql.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/postgresql',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.MYSQL]: {
     label: 'MySQL',
     logo: '/images/dataSource/mysql.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/mysql',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.MSSQL]: {
     label: 'SQL Server',
     logo: '/images/dataSource/sqlserver.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/sqlserver',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.CLICK_HOUSE]: {
     label: 'ClickHouse',
     logo: '/images/dataSource/clickhouse.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/clickhouse',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.TRINO]: {
     label: 'Trino',
     logo: '/images/dataSource/trino.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/trino',
+    guide: '#',
     disabled: false,
   },
   [DATA_SOURCES.SNOWFLAKE]: {
     label: 'Snowflake',
     logo: '/images/dataSource/snowflake.svg',
-    guide: 'https://docs.getwren.ai/oss/guide/connect/snowflake',
+    guide: '#',
     disabled: false,
   },
 } as { [key: string]: ButtonOption };
@@ -126,12 +126,12 @@ export const TEMPLATE_OPTIONS = {
   [SampleDatasetName.ECOMMERCE]: {
     label: 'E-commerce',
     IconComponent: ShoppingCartOutlined,
-    guide: 'https://docs.getwren.ai/oss/getting_started/sample_data/ecommerce',
+    guide: '#',
   },
   [SampleDatasetName.HR]: {
     label: 'Human Resource',
     IconComponent: IdCardOutlined,
-    guide: 'https://docs.getwren.ai/oss/getting_started/sample_data/hr',
+    guide: '#',
   },
 };
 
@@ -196,11 +196,7 @@ export const getPostgresErrorMessage = (error: Record<string, any>) => {
         {error.message}. <br />
         If you are having trouble connecting to your PostgreSQL database, please
         refer to our{' '}
-        <a
-          href="https://docs.getwren.ai/oss/guide/connect/postgresql#connect"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="#" target="_blank" rel="noopener noreferrer">
           documentation
         </a>{' '}
         for detailed instructions.

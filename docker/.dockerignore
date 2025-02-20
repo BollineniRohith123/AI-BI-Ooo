@@ -1,0 +1,51 @@
+# Version control
+.git
+.gitignore
+.gitmodules
+
+# Dependencies
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+env/
+venv/
+.env
+
+# Development
+**/.vscode
+**/.idea
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Testing
+**/coverage
+**/.coverage
+**/htmlcov
+**/.pytest_cache
+**/.tox
+
+# Build
+**/dist
+**/build
+**/*.egg-info
+**/.eggs
+
+# Docker
+.docker
+docker-compose*.yml
+Dockerfile*
+
+# Documentation
+docs/
+*.md
+
+# Temporary files
+**/*.swp
+**/*.swo
+**/.DS_Store
+**/Thumbs.db 
