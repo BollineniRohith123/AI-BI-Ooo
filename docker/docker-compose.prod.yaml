@@ -7,6 +7,7 @@ volumes:
 networks:
   wren:
     driver: bridge
+    internal: true
 
 services:
   bootstrap:
@@ -23,6 +24,16 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /app/data/.initialized || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   wren-engine:
     image: ghcr.io/canner/wren-engine:${WREN_ENGINE_VERSION}
@@ -33,21 +44,27 @@ services:
       - ${WREN_ENGINE_SQL_PORT}
     volumes:
       - data:/usr/src/app/etc
-      - ${PROJECT_DIR}/data:/usr/src/app/data
+      - ${PROJECT_DIR}/data:/usr/src/app/data:ro
     networks:
       - wren
     depends_on:
-      - bootstrap
+      bootstrap:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${WREN_ENGINE_PORT}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   ibis-server:
     image: ghcr.io/canner/wren-engine-ibis:${IBIS_SERVER_VERSION}
@@ -59,16 +76,24 @@ services:
       WREN_ENGINE_ENDPOINT: http://wren-engine:${WREN_ENGINE_PORT}
     networks:
       - wren
+    depends_on:
+      wren-engine:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${IBIS_SERVER_PORT}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
   wren-ai-service:
     image: ghcr.io/canner/wren-ai-service:${WREN_AI_SERVICE_VERSION}
@@ -92,17 +117,25 @@ services:
     networks:
       - wren
     depends_on:
-      - qdrant
+      qdrant:
+        condition: service_healthy
+      wren-engine:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${WREN_AI_SERVICE_PORT}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   qdrant:
     image: qdrant/qdrant:v1.13.2
@@ -119,14 +152,19 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   wren-ui:
-    image: wren-ui:${WREN_UI_VERSION}
+    image: ghcr.io/canner/wren-ui:${WREN_UI_VERSION}
     restart: unless-stopped
     platform: ${PLATFORM}
     environment:
@@ -158,15 +196,24 @@ services:
     networks:
       - wren
     depends_on:
-      - wren-ai-service
-      - wren-engine
+      wren-ai-service:
+        condition: service_healthy
+      wren-engine:
+        condition: service_healthy
+      ibis-server:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3" 
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G

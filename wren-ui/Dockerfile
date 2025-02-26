@@ -1,7 +1,9 @@
 FROM node:18-bookworm-slim AS base
 
-# Install required packages
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install required packages and cleanup in the same layer
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -42,6 +44,11 @@ RUN yarn build
 FROM base AS runner
 WORKDIR /app
 
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs \
+    && chown -R nextjs:nodejs /app
+
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
@@ -68,9 +75,18 @@ COPY --from=builder /app/node_modules/getopts ./node_modules/getopts
 COPY --from=builder /app/node_modules/escalade/sync ./node_modules/escalade/sync
 COPY --from=builder /app/node_modules/.yarn-state.yml ./node_modules/.yarn-state.yml
 
+# Ensure proper permissions
+RUN chown -R nextjs:nodejs /app
+
 EXPOSE 3000
 
 ENV PORT 3000
+
+# Switch to non-root user
+USER nextjs
+
+# Add healthcheck to match docker-compose configuration
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl -f http://localhost:3000/api/health || exit 1
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
